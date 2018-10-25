@@ -212,7 +212,7 @@ def get_userid_from_request(request):
     
     from warnings import warn
     warn(("This function has been deprecated. Use "
-        "dj_security_middleware.utils.userid_from_request, instead."))
+        "dj_security_middleware.utils.request.userid_from_request, instead."))
     
     try:
         return userid_from_request(request)
@@ -224,7 +224,7 @@ def get_openid_from_request(request):
     
     from warnings import warn
     warn(("This function has been deprecated. Use "
-        "dj_security_middleware.utils.openid_from_request, instead."))
+        "dj_security_middleware.utils.request.openid_from_request, instead."))
     
     try:
         return openid_from_request(request)
