@@ -13,7 +13,6 @@ __contact__ = "william.tucker@stfc.ac.uk"
 
 import logging
 import re
-import socket
 
 from django.conf import settings
 from django.utils.http import urlencode
@@ -23,7 +22,8 @@ from six.moves import urllib
 
 from .exception import CookieParsingError
 from .utils.cookie import parse_cookie_value
-from .utils.request import userid_from_request, openid_from_request
+from .utils.request import LOGOUT_KEY, REGISTRATION_KEY, login_url, \
+    userid_from_request, openid_from_request
 
 
 log = logging.getLogger(__name__)
@@ -35,17 +35,12 @@ class DJSecurityMiddleware(MiddlewareMixin):
     performs logout or redirection.
     """
     
-    # URL query parameter keys recognized by middleware.
-    LOGOUT = 'logout'
-    REGISTRATION = 'registration'
-    
     # Key in session dictionary used to store the users account ID
     SESSION_KEY = 'accountid'
     
     def __init__(self, *args, **kwargs):
         
         self._login_service = settings.SECURITY_LOGIN_SERVICE
-        self._redirect_key = getattr(settings, 'REDIRECT_FIELD_NAME', 'r')
         
         # Retrieve cookie domain from settings or use login service host.
         if hasattr(settings, 'COOKIE_DOMAIN'):
@@ -87,14 +82,25 @@ class DJSecurityMiddleware(MiddlewareMixin):
         :returns: Redirect response or None
         """
         
-        if self.REGISTRATION in request.GET:
+        if REGISTRATION_KEY in request.GET:
+            
             # Redirect to registration URL
             return HttpResponseRedirect('{login_service}?registration'.format(
                 login_service=self._login_service))
         
-        if self.LOGOUT in request.GET:
-            # Redirect to login service
-            response = HttpResponseRedirect(self._build_return_to_url(request))
+        if LOGOUT_KEY in request.GET:
+            
+            # Removed the LOGOUT_KEY request attribute
+            new_get = request.GET.copy()
+            del new_get[LOGOUT_KEY]
+            
+            # Redirect to the same page
+            if not new_get:
+                redirect_path = request.path
+            else:
+                redirect_path = "{path}?{query}".format(
+                    path=request.path, query=new_get.urlencode())
+            response = HttpResponseRedirect(redirect_path)
             
             log.debug("Removing cookies {cookies} for {domain}".format(
                 cookies=self._auth_cookie_names, domain=self._cookie_domain)
@@ -140,15 +146,8 @@ class DJSecurityMiddleware(MiddlewareMixin):
         if not authenticated and not self._is_public(request.path_info):
             # Authentication has failed and the URL is not public. Redirect
             # request to the login service.
-            query = urlencode({
-                self._redirect_key: self._build_return_to_url(request)
-            })
             
-            url = '{login_service}?{query}'.format(
-                login_service=self._login_service,
-                query=query
-            )
-            return HttpResponseRedirect(url)
+            return HttpResponseRedirect(login_url(request))
     
     def _is_public(self, path):
         """Checks a given path against a list of regex patterns.
@@ -175,29 +174,6 @@ class DJSecurityMiddleware(MiddlewareMixin):
         }
         log.debug("User stored in request: {userid}".format(userid=userid))
         request.session[cls.SESSION_KEY] = userid
-    
-    @classmethod
-    def _build_return_to_url(cls, request):
-        """Construct a URL encoded string containing the URL which the login
-        service should return to after authentication.
-        
-        :param request: The HTTP request object.
-        """
-        
-        hostname = request.environ.get('HTTP_HOST', socket.getfqdn())
-        new_get = request.GET.copy()
-        
-        # Removed the LOGOUT request attribute
-        new_get.pop(cls.LOGOUT, None)
-        
-        url = 'http://{host}{path}'
-        get_values = urllib.parse.urlencode(new_get)
-        if len(get_values) > 0:
-            url = 'http://{host}{path}?{get}'
-            
-        return url.format(host=hostname,
-                          path=request.path,
-                          get=get_values)
 
 
 def DJ_Security_Middleware(*args, **kwargs):

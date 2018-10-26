@@ -1,5 +1,5 @@
 """
-Tests for the utils module
+Tests for the request module
 """
 
 __author__ = "Maurizio Nagni (STFC)"
@@ -13,13 +13,11 @@ __contact__ = "william.tucker@stfc.ac.uk"
 from crypto_cookie.auth_tkt import SecureCookie
 from django.test import override_settings
 
+from dj_security_middleware.test import settings, BaseMiddlewareTestCase
 from dj_security_middleware.exception import MissingCookieError
-from dj_security_middleware.utils.cookie import SHARED_SECRET, \
-    parse_cookie_value
-from dj_security_middleware.utils.request import userid_from_request, \
-    openid_from_request
-
-from . import settings, BaseMiddlewareTestCase
+from dj_security_middleware.utils.cookie import SHARED_SECRET
+from dj_security_middleware.utils.request import LOGOUT_KEY, \
+    userid_from_request, openid_from_request, login_url, logout_url
 
 
 class TestUseridFromRequest(BaseMiddlewareTestCase):
@@ -69,18 +67,43 @@ class TestOpenidFromRequest(BaseMiddlewareTestCase):
         self.assertEqual(openid_from_request(self.request), openid)
 
 
-class TestParseSecureCookie(BaseMiddlewareTestCase):
+class TestLoginUrl(BaseMiddlewareTestCase):
     
-    def test_invalid_cookie(self):
+    def test_with_redirect(self):
         
-        # Error expected when parsing an invalid cookie
-        self.assertRaises(Exception, parse_cookie_value, 'invalid')
+        # Expecting login URL with redirect
+        expected_url = self._redirect_url()
+        self.assertEqual(login_url(self.request), expected_url)
     
-    def test_valid_cookie(self):
+    def test_without_redirect(self):
         
-        cookie = SecureCookie(SHARED_SECRET, 'test', None)
-        cookie_value = parse_cookie_value(cookie.cookie_value())
+        # Expecting login URL without redirect
+        expected_url = settings.SECURITY_LOGIN_SERVICE
+        self.assertEqual(login_url(self.request, redirect=False), expected_url)
+    
+    @override_settings(REDIRECT_FIELD_NAME='test')
+    def test_alternate_redirect_key(self):
         
-        # Parsed cookie should be a tuple
-        self.assertTrue(isinstance(cookie_value, tuple),
-            "Cookie value is not a tuple.")
+        # Expecting login URL with redirect and unique key
+        expected_url = self._redirect_url(redirect_key='test')
+        self.assertEqual(login_url(self.request), expected_url)
+
+
+class TestLogoutUrl(BaseMiddlewareTestCase):
+    
+    def test_basic_path(self):
+        
+        url = logout_url(self.factory.get('/'))
+        keys = [param.split('=')[0] for param in url.split('?')[1].split('&')]
+        
+        # Returned path should contain an extra query parameter
+        self.assertIn(LOGOUT_KEY, keys)
+    
+    def test_path_with_query(self):
+        
+        url = logout_url(self.factory.get('/?test=value'))
+        keys = [param.split('=')[0] for param in url.split('?')[1].split('&')]
+        
+        # Returned path should contain an extra query parameter
+        self.assertIn('test', keys)
+        self.assertIn(LOGOUT_KEY, keys)
