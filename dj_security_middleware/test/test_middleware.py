@@ -12,9 +12,9 @@ __contact__ = "william.tucker@stfc.ac.uk"
 
 from crypto_cookie.auth_tkt import SecureCookie
 from django.test import override_settings
-from six.moves import urllib
 
 from dj_security_middleware.utils.cookie import SHARED_SECRET
+from dj_security_middleware.utils.request import LOGOUT_KEY
 from dj_security_middleware.middleware import DJSecurityMiddleware, \
     get_userid_from_request, get_openid_from_request
 
@@ -24,8 +24,6 @@ from . import settings, BaseMiddlewareTestCase
 class TestDJSecurityMiddleware(BaseMiddlewareTestCase):
     """Unit tests for DJSecurityMiddleware methods
     """
-    
-    TEST_HOST = 'localhost'
     
     def setUp(self):
         
@@ -43,23 +41,8 @@ class TestDJSecurityMiddleware(BaseMiddlewareTestCase):
         
         response = self._get_response('/')
         
-        qs = {'r': 'http://{}/'.format(self.TEST_HOST)}
-        expected_redirect_location = '{0}?{1}'.format(
-            settings.SECURITY_LOGIN_SERVICE, urllib.parse.urlencode(qs))
-        
         # Check for correct redirect URL
-        self.assertEqual(response.url, expected_redirect_location)
-    
-    def test_redirect_with_query(self):
-        
-        response = self._get_response('/?q=test')
-        
-        qs = {'r': 'http://{}/?q=test'.format(self.TEST_HOST)}
-        expected_redirect_location = '{0}?{1}'.format(
-            settings.SECURITY_LOGIN_SERVICE, urllib.parse.urlencode(qs))
-        
-        # Check for correct redirect URL
-        self.assertEqual(response.url, expected_redirect_location)
+        self.assertEqual(response.url, self._redirect_url())
     
     def test_authenticated_user(self):
         
@@ -83,7 +66,7 @@ class TestDJSecurityMiddleware(BaseMiddlewareTestCase):
     
     def test_logout(self):
         
-        logout_path = '/?{}'.format(DJSecurityMiddleware.LOGOUT)
+        logout_path = '/?{}'.format(LOGOUT_KEY)
         
         # Expect redirect after logout
         self.assertEqual(self._get_response(logout_path).status_code, 302)
@@ -92,7 +75,7 @@ class TestDJSecurityMiddleware(BaseMiddlewareTestCase):
         
         cookie_name = settings.ACCOUNT_COOKIE_NAME
         
-        logout_path = '/?{}'.format(DJSecurityMiddleware.LOGOUT)
+        logout_path = '/?{}'.format(LOGOUT_KEY)
         response = self._get_response(logout_path)
         
         # Check for expected number of cookies
@@ -115,7 +98,7 @@ class TestDJSecurityMiddleware(BaseMiddlewareTestCase):
             settings.OPENID_COOKIE_NAME
         ] + settings.EXTRA_COOKIE_NAMES
         
-        logout_path = '/?{}'.format(DJSecurityMiddleware.LOGOUT)
+        logout_path = '/?{}'.format(LOGOUT_KEY)
         response = self._get_response(logout_path, True)
         
         # Check for expected number of cookies
