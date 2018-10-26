@@ -95,8 +95,11 @@ class DJSecurityMiddleware(MiddlewareMixin):
             del new_get[LOGOUT_KEY]
             
             # Redirect to the same page
-            redirect_path = "{path}?{query}".format(
-                path=request.path, query=urlencode(new_get))
+            if not new_get:
+                redirect_path = request.path
+            else:
+                redirect_path = "{path}?{query}".format(
+                    path=request.path, query=new_get.urlencode())
             response = HttpResponseRedirect(redirect_path)
             
             log.debug("Removing cookies {cookies} for {domain}".format(

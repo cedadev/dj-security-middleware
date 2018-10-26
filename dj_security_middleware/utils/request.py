@@ -99,9 +99,9 @@ def logout_url(request):
     :returns: A logout URL path.
     """
     
-    query = request.GET.copy()
-    query[LOGOUT_KEY] = None
+    new_get = request.GET.copy()
+    new_get[LOGOUT_KEY] = ''
     
     logout_path = '{path}?{query}'.format(
-        path=request.path, query=urlencode(query))
+        path=request.path, query=new_get.urlencode())
     return logout_path
