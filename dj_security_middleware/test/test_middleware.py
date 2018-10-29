@@ -12,6 +12,7 @@ __contact__ = "william.tucker@stfc.ac.uk"
 
 from crypto_cookie.auth_tkt import SecureCookie
 from django.test import override_settings
+from six import itervalues
 
 from dj_security_middleware.utils.cookie import SHARED_SECRET
 from dj_security_middleware.utils.request import LOGOUT_KEY
@@ -80,14 +81,13 @@ class TestDJSecurityMiddleware(BaseMiddlewareTestCase):
         
         # Check for expected number of cookies
         self.assertEqual(len(response.cookies), 1)
-        account_cookie = response.cookies.itervalues().next()
+        account_cookie = next(itervalues(response.cookies))
         
         # Check that the cookie has the correct name
         self.assertEquals(account_cookie.key, cookie_name)
         
         # Check that the cookie has been removed
-        self.assertEquals(account_cookie['expires'],
-            'Thu, 01-Jan-1970 00:00:00 GMT')
+        self.assertTrue('1970' in account_cookie['expires'])
     
     @override_settings(OPENID_COOKIE_NAME='openid',
         EXTRA_COOKIE_NAMES=['extra'])
@@ -104,14 +104,13 @@ class TestDJSecurityMiddleware(BaseMiddlewareTestCase):
         # Check for expected number of cookies
         self.assertEqual(len(response.cookies), 3)
         
-        for cookie in response.cookies.itervalues():
+        for cookie in itervalues(response.cookies):
             
             # Check that the cookie matches one in the list
             self.assertTrue(cookie.key in cookie_names)
             
             # Check that the cookie has been removed
-            self.assertEquals(cookie['expires'],
-                'Thu, 01-Jan-1970 00:00:00 GMT')
+            self.assertTrue('1970' in cookie['expires'])
     
     @override_settings(DJ_SECURITY_FILTER=['.*'])
     def test_filter_all(self):

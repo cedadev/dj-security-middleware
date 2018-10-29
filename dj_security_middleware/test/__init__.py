@@ -13,6 +13,8 @@ __contact__ = "william.tucker@stfc.ac.uk"
 import os
 import codecs
 
+secret = codecs.encode(os.urandom(32), 'base64').decode().strip()
+
 from django.test import SimpleTestCase, RequestFactory
 from django.utils.http import urlencode
 from django.conf import settings
@@ -20,7 +22,7 @@ if not settings.configured:
     settings.configure(
         ACCOUNT_COOKIE_NAME='account',
         SECURITY_LOGIN_SERVICE='http://localhost/signin/',
-        SECURITY_SHAREDSECRET=codecs.encode(os.urandom(16), 'base64').strip(),
+        SECURITY_SHAREDSECRET=secret,
         ALLOWED_HOSTS=['*'],
     )
 
